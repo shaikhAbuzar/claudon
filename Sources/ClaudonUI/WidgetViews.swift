@@ -2,7 +2,7 @@ import ClaudonCore
 import SwiftUI
 
 public enum WidgetSize: CaseIterable, Sendable {
-    case small, medium, large
+    case small, medium, large, extraLarge, extraLargePortrait
 }
 
 /// The desktop and Notification Center widget: the leading limit with the glyph, then the
@@ -39,6 +39,10 @@ public struct UsageWidgetView: View {
                 }
             case .large:
                 LargeLayout(snapshot: snapshot, state: state, now: now)
+            case .extraLarge:
+                ExtraLargeLayout(snapshot: snapshot, state: state, now: now)
+            case .extraLargePortrait:
+                ExtraLargePortraitLayout(snapshot: snapshot, state: state, now: now)
             }
         } else {
             VStack(alignment: .leading, spacing: 8) {
@@ -182,8 +186,10 @@ private struct LimitMeterRow: View {
 private struct WidgetMeter: View {
     let fraction: Double
     let color: Color
+    @Environment(\.widgetDimmed) private var dimmed
 
     var body: some View {
+        let color = dimmed ? Color.primary : color
         GeometryReader { geometry in
             let value = min(max(fraction, 0), 1)
             ZStack(alignment: .leading) {
@@ -197,6 +203,125 @@ private struct WidgetMeter: View {
     }
 }
 
+/// The leading limit as a row: glyph, title and big percentage, and the reset on the right.
+private struct HeadlineRow: View {
+    let state: LimitState
+    let now: Date
+    var glyphSize: CGFloat = 30
+    var percentSize: CGFloat = 24
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            GlyphView(stage: state.stage(at: now), size: glyphSize)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(state.headline.map { state.blocking ? $0.title : "Session" } ?? "Claudon")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                if let headline = state.headline {
+                    PercentText(percent: headline.percent(at: now), size: percentSize, stale: state.stale)
+                } else {
+                    Text("No plan limits yet")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .fixedSize()
+            Spacer(minLength: 8)
+            if let headline = state.headline {
+                VStack(alignment: .trailing, spacing: 1) {
+                    if state.stale, let fetchedAt = state.fetchedAt {
+                        Text("Not current")
+                        Text("checked \(Formatters.resetClock(fetchedAt, now: now))")
+                    } else if let reset = headline.resetsAt, reset > now {
+                        Text(state.resetText(at: now) ?? "")
+                        Text(Formatters.resetClock(reset, now: now))
+                    }
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+        }
+    }
+}
+
+/// Meters for the limits after the leading one, plus extra usage when it's on.
+private struct OtherLimits: View {
+    let snapshot: WidgetSnapshot
+    let state: LimitState
+    let now: Date
+    var limit = 3
+    var spacing: CGFloat = 9
+    var showExtra = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing) {
+            ForEach(state.others.prefix(limit)) { window in
+                LimitMeterRow(window: window, now: now, stale: state.stale)
+            }
+            if showExtra, let extra = snapshot.limits?.extra, extra.isEnabled, extra.limit != nil {
+                ExtraMeterRow(extra: extra, stale: state.stale)
+            }
+        }
+    }
+}
+
+private struct ExtraMeterRow: View {
+    let extra: ExtraUsage
+    let stale: Bool
+
+    var body: some View {
+        let percent = extra.percent ?? 0
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Text("Extra usage").foregroundStyle(.secondary)
+                Text(Formatters.money(extra.used, currency: extra.currency, exact: true))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Spacer(minLength: 4)
+                Text(Formatters.percent(percent))
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+            }
+            .font(.system(size: 10.5))
+            .lineLimit(1)
+            WidgetMeter(fraction: percent / 100, color: stale ? .secondary : Palette.status(UsageLevel(percent: percent)))
+        }
+    }
+}
+
+/// Today and the last 7 days: tokens, active time and API cost.
+private struct TotalsTable: View {
+    let snapshot: WidgetSnapshot
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 5) {
+            GridRow {
+                Text("")
+                Text("Today").gridColumnAlignment(.trailing)
+                Text("7 days").gridColumnAlignment(.trailing)
+            }
+            .foregroundStyle(.secondary)
+            row("Tokens", Formatters.tokens(snapshot.today.tokens), Formatters.tokens(snapshot.week.tokens))
+            row("Active time", Formatters.duration(minutes: snapshot.today.minutes),
+                Formatters.duration(minutes: snapshot.week.minutes))
+            row("API cost", Formatters.money(snapshot.today.cost), Formatters.money(snapshot.week.cost))
+        }
+        .font(.system(size: 11))
+        .monospacedDigit()
+        .lineLimit(1)
+    }
+
+    private func row(_ name: String, _ today: String, _ week: String) -> some View {
+        GridRow {
+            Text(name).foregroundStyle(.secondary)
+            Text(today).fontWeight(.semibold)
+            Text(week).fontWeight(.semibold)
+        }
+    }
+}
+
+/// Limits and the day calendar. The hour grid waits for the extra large sizes.
 private struct LargeLayout: View {
     let snapshot: WidgetSnapshot
     let state: LimitState
@@ -204,49 +329,14 @@ private struct LargeLayout: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 10) {
-                GlyphView(stage: state.stage(at: now), size: 30)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(state.headline.map { state.blocking ? $0.title : "Session" } ?? "Claudon")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    if let headline = state.headline {
-                        PercentText(percent: headline.percent(at: now), size: 24, stale: state.stale)
-                    }
-                }
-                Spacer(minLength: 8)
-                if let headline = state.headline {
-                    VStack(alignment: .trailing, spacing: 1) {
-                        if state.stale, let fetchedAt = state.fetchedAt {
-                            Text("Not current")
-                            Text("checked \(Formatters.resetClock(fetchedAt, now: now))")
-                        } else if let reset = headline.resetsAt, reset > now {
-                            Text(state.resetText(at: now) ?? "")
-                            Text(Formatters.resetClock(reset, now: now))
-                        }
-                    }
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                }
-            }
-            if !state.others.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(state.others.prefix(2)) { window in
-                        LimitMeterRow(window: window, now: now, stale: state.stale)
-                    }
-                }
-                .padding(.top, 10)
-            }
+            HeadlineRow(state: state, now: now)
+            OtherLimits(snapshot: snapshot, state: state, now: now, limit: 2, spacing: 10, showExtra: false)
+                .padding(.top, 12)
+            Spacer(minLength: 12)
+            SectionTitle(text: calendarTitle(snapshot))
+            CalendarGrid(snapshot: snapshot, showMonths: true, allWeeks: true)
+                .frame(height: 118)
             Spacer(minLength: 10)
-            SectionTitle(text: "Last \(max(1, (snapshot.dayLevels.count + 6) / 7)) weeks · \(metricName)")
-            CalendarGrid(snapshot: snapshot, showMonths: true)
-                .frame(height: 96)
-            Spacer(minLength: 10)
-            SectionTitle(text: "By weekday and hour · last 30 days")
-            HourGrid(snapshot: snapshot)
-                .frame(height: 70)
-            Spacer(minLength: 8)
             HStack(spacing: 6) {
                 TotalsLine(snapshot: snapshot)
                 Spacer(minLength: 4)
@@ -255,8 +345,78 @@ private struct LargeLayout: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
+}
 
-    private var metricName: String { snapshot.metric == .tokens ? "tokens" : "active time" }
+/// Wide: limits and totals on the left, both grids on the right.
+private struct ExtraLargeLayout: View {
+    let snapshot: WidgetSnapshot
+    let state: LimitState
+    let now: Date
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 24) {
+            VStack(alignment: .leading, spacing: 0) {
+                HeadlineRow(state: state, now: now, glyphSize: 34, percentSize: 28)
+                OtherLimits(snapshot: snapshot, state: state, now: now)
+                    .padding(.top, 14)
+                Spacer(minLength: 12)
+                TotalsTable(snapshot: snapshot)
+            }
+            .frame(width: 236)
+            .frame(maxHeight: .infinity, alignment: .topLeading)
+            VStack(alignment: .leading, spacing: 0) {
+                SectionTitle(text: calendarTitle(snapshot))
+                CalendarGrid(snapshot: snapshot, showMonths: true, allWeeks: true)
+                    .frame(height: 124)
+                Spacer(minLength: 12)
+                SectionTitle(text: "By weekday and hour · last 30 days")
+                HourGrid(snapshot: snapshot)
+                    .frame(height: 104)
+                Spacer(minLength: 8)
+                HStack {
+                    Spacer()
+                    HeatLegend()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+}
+
+/// Tall: everything stacked, with room for each part.
+private struct ExtraLargePortraitLayout: View {
+    let snapshot: WidgetSnapshot
+    let state: LimitState
+    let now: Date
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HeadlineRow(state: state, now: now, glyphSize: 38, percentSize: 30)
+            OtherLimits(snapshot: snapshot, state: state, now: now, spacing: 11)
+                .padding(.top, 16)
+            Spacer(minLength: 16)
+            TotalsTable(snapshot: snapshot)
+            Spacer(minLength: 16)
+            SectionTitle(text: calendarTitle(snapshot))
+            CalendarGrid(snapshot: snapshot, showMonths: true, allWeeks: true)
+                .frame(height: 118)
+            Spacer(minLength: 16)
+            SectionTitle(text: "By weekday and hour · last 30 days")
+            HourGrid(snapshot: snapshot)
+                .frame(height: 140)
+            Spacer(minLength: 10)
+            HStack {
+                Spacer()
+                HeatLegend()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private func calendarTitle(_ snapshot: WidgetSnapshot) -> String {
+    let weeks = max(1, (snapshot.dayLevels.count + 6) / 7)
+    return "Last \(weeks) weeks · \(snapshot.metric == .tokens ? "tokens" : "active time")"
 }
 
 private struct SectionTitle: View {
@@ -291,12 +451,14 @@ private struct TotalsLine: View {
 
 private struct HeatLegend: View {
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.widgetDimmed) private var dimmed
 
     var body: some View {
         HStack(spacing: 2.5) {
             Text("Less")
             ForEach(0..<5, id: \.self) { level in
-                RoundedRectangle(cornerRadius: 1.5).fill(Palette.heat(level, scheme)).frame(width: 8, height: 8)
+                RoundedRectangle(cornerRadius: 1.5).fill(dimmed ? Palette.dimmedHeat(level) : Palette.heat(level, scheme))
+                    .frame(width: 8, height: 8)
             }
             Text("More")
         }
@@ -306,18 +468,21 @@ private struct HeatLegend: View {
     }
 }
 
-/// The day calendar, weeks as columns, showing as many recent weeks as fit the space.
+/// The day calendar, weeks as columns. With `allWeeks` the squares shrink to fit every week;
+/// otherwise they fill the height and show as many recent weeks as fit.
 private struct CalendarGrid: View {
     let snapshot: WidgetSnapshot
     let showMonths: Bool
+    var allWeeks = false
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         GeometryReader { geometry in
             let header: CGFloat = showMonths ? 13 : 0
             let totalWeeks = max(1, (snapshot.dayLevels.count + 6) / 7)
-            // Square cells sized to fill the height, then as many recent weeks as fit the width.
-            let pitch = max(4, (geometry.size.height - header) / (7 - gapRatio))
+            let byHeight = (geometry.size.height - header) / (7 - gapRatio)
+            let byWidth = geometry.size.width / (CGFloat(totalWeeks) - gapRatio)
+            let pitch = max(4, allWeeks ? min(byHeight, byWidth) : byHeight)
             let weeks = min(totalWeeks, max(1, Int((geometry.size.width + pitch * gapRatio) / pitch)))
             let gap = pitch * gapRatio, cell = pitch - gap
             let firstColumn = totalWeeks - weeks
@@ -334,8 +499,8 @@ private struct CalendarGrid: View {
                 HeatCells(levels: snapshot.dayLevels, cellsPerLine: 7, columnMajor: true,
                           firstLine: firstColumn, cell: CGSize(width: cell, height: cell), gap: gap, top: header)
             }
-            .frame(width: CGFloat(weeks) * pitch - gap, alignment: .topLeading)
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            .frame(width: CGFloat(weeks) * pitch - gap, height: header + 7 * pitch - gap, alignment: .topLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         }
         .accessibilityElement()
         .accessibilityLabel("Daily Claude Code activity")
@@ -393,12 +558,13 @@ private struct HeatCells: View {
     let gap: CGFloat
     let top: CGFloat
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.widgetDimmed) private var dimmed
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             ForEach(0..<5, id: \.self) { level in
                 Cells(rects: rects(for: level), radius: max(1, min(cell.width, cell.height) * 0.2))
-                    .fill(Palette.heat(level, scheme))
+                    .fill(dimmed ? Palette.dimmedHeat(level) : Palette.heat(level, scheme))
             }
         }
     }

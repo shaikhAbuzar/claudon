@@ -84,9 +84,14 @@ enum Snapshotter {
         if let activity = model.activity {
             let snapshot = model.widgetSnapshot(activity)
             for scheme in [ColorScheme.light, .dark] {
+                let suffix = scheme == .dark ? "dark" : "light"
                 write(WidgetsPreview(snapshot: snapshot, now: now).environment(\.colorScheme, scheme),
-                      to: directory.appendingPathComponent("widgets-\(scheme == .dark ? "dark" : "light").png"))
+                      to: directory.appendingPathComponent("widgets-\(suffix).png"))
+                write(WidgetsPreview(snapshot: snapshot, now: now, extraLarge: true).environment(\.colorScheme, scheme),
+                      to: directory.appendingPathComponent("widgets-xl-\(suffix).png"))
             }
+            write(WidgetsPreview(snapshot: snapshot, now: now, dimmed: true).environment(\.colorScheme, .dark),
+                  to: directory.appendingPathComponent("widgets-dimmed.png"))
         }
         if let icon = ClaudonArt.pngData(pixels: 512, draw: { ClaudonArt.drawIcon(in: $0, size: 512) }) {
             try? icon.write(to: directory.appendingPathComponent("icon.png"))
@@ -157,25 +162,39 @@ private struct StagesPreview: View {
 private struct WidgetsPreview: View {
     let snapshot: WidgetSnapshot
     let now: Date
+    var extraLarge = false
+    /// How the desktop draws widgets while another app is in front: one tint, no background.
+    var dimmed = false
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 16) {
-                tile(.small, width: 164, height: 164)
-                tile(.medium, width: 344, height: 164)
+        Group {
+            if extraLarge {
+                HStack(alignment: .top, spacing: 16) {
+                    tile(.extraLarge, width: 708, height: 344)
+                    tile(.extraLargePortrait, width: 344, height: 708)
+                }
+            } else {
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        tile(.small, width: 164, height: 164)
+                        tile(.medium, width: 344, height: 164)
+                    }
+                    tile(.large, width: 344, height: 344)
+                }
             }
-            tile(.large, width: 344, height: 344)
         }
         .padding(20)
-        .background(scheme == .dark ? Color(white: 0.1) : Color(white: 0.85))
+        .background(dimmed ? Color(red: 0.16, green: 0.3, blue: 0.45)
+            : scheme == .dark ? Color(white: 0.1) : Color(white: 0.85))
+        .environment(\.widgetDimmed, dimmed)
     }
 
     private func tile(_ size: WidgetSize, width: CGFloat, height: CGFloat) -> some View {
         UsageWidgetView(snapshot: snapshot, now: now, size: size)
             .padding(16)
             .frame(width: width, height: height)
-            .background(scheme == .dark ? Color(white: 0.17) : Color.white)
+            .background(dimmed ? Color.black.opacity(0.35) : scheme == .dark ? Color(white: 0.17) : Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }

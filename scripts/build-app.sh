@@ -7,6 +7,8 @@ APP_NAME="Claudon"
 BUNDLE_ID="app.claudon.Claudon"
 VERSION="$(sed -n 's/.*static let version = "\(.*\)".*/\1/p' Sources/ClaudonCore/TokenCounts.swift)"
 APP="build/$APP_NAME.app"
+# A new build number each build: macOS caches a widget's sizes and details until it changes.
+BUILD="$(date -u +%y%m%d%H%M)"
 
 swift build -c release --product "$APP_NAME"
 swift build -c release --product "${APP_NAME}Widget"
@@ -16,6 +18,15 @@ BIN="$BIN_DIR/$APP_NAME"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$APP_NAME"
+
+# With only the Command Line Tools, the linker records the deployment target as the SDK
+# version. WidgetKit reads that stamp to decide which sizes and styles a widget supports, so
+# record the SDK actually used, as Xcode does.
+SDK_VERSION="$(xcrun --show-sdk-version)"
+stamp_sdk() {
+    vtool -set-build-version macos 14.0 "$SDK_VERSION" -replace -output "$1" "$1"
+}
+stamp_sdk "$APP/Contents/MacOS/$APP_NAME"
 
 # The app draws its own icon; turn it into an .icns file.
 ICONSET="build/AppIcon.iconset"
@@ -36,7 +47,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
-    <key>CFBundleVersion</key><string>$VERSION</string>
+    <key>CFBundleVersion</key><string>$BUILD</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
     <key>LSUIElement</key><true/>
@@ -50,6 +61,7 @@ PLIST
 APPEX="$APP/Contents/PlugIns/${APP_NAME}Widget.appex"
 mkdir -p "$APPEX/Contents/MacOS"
 cp "$BIN_DIR/${APP_NAME}Widget" "$APPEX/Contents/MacOS/${APP_NAME}Widget"
+stamp_sdk "$APPEX/Contents/MacOS/${APP_NAME}Widget"
 cat > "$APPEX/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -61,7 +73,7 @@ cat > "$APPEX/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>${APP_NAME}Widget</string>
     <key>CFBundlePackageType</key><string>XPC!</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
-    <key>CFBundleVersion</key><string>$VERSION</string>
+    <key>CFBundleVersion</key><string>$BUILD</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSExtension</key>
     <dict>
@@ -87,4 +99,4 @@ PLIST
 # show the widget. Sign the extension first, then the app around it.
 codesign --force --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$APPEX"
 codesign --force --sign - --timestamp=none "$APP"
-echo "Built $APP ($VERSION)"
+echo "Built $APP ($VERSION, build $BUILD)"

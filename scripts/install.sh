@@ -14,7 +14,9 @@ if pgrep -x Claudon >/dev/null; then
     pkill -x Claudon || true
     while pgrep -x Claudon >/dev/null; do sleep 0.2; done
 fi
-rm -rf "$DEST/Claudon.app"
-cp -R build/Claudon.app "$DEST/"
+# Update the bundle in place: deleting it first, even briefly, makes macOS drop any Claudon
+# widgets from the desktop.
+mkdir -p "$DEST/Claudon.app"
+rsync -a --delete build/Claudon.app/ "$DEST/Claudon.app/"
 open "$DEST/Claudon.app"
 echo "Installed $DEST/Claudon.app"

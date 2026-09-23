@@ -29,14 +29,19 @@ Claudon is a small macOS menu bar app that shows your Claude plan limits at a gl
 - **Today, 7 days, 30 days:** tokens, active time, API-equivalent cost and the model you used most.
 - **Activity:** a GitHub-style calendar of the last 26 weeks and a weekday-by-hour grid of the last 30 days. Squares use the glyph's colors, from blue for your quietest quarter of days through green and orange to red for the busiest. Switch between tokens and active time, filter to one model, and hover any square for its numbers.
 - **Models and Projects:** tokens, share, time or replies, and API cost for the last 7 days, 30 days or all time.
-- **Widget:** a desktop and Notification Center widget in three sizes. The small one shows the session limit with the glyph, its reset and the weekly limit; the medium one adds the recent weeks of the calendar; the large one shows every limit and both grids.
+- **Widget:** a desktop and Notification Center widget in five sizes. The small one shows the session limit with the glyph, its reset and the weekly limit; the medium one adds the recent weeks of the calendar; the large one shows the limits and the full calendar. The extra large sizes, wide and (on macOS 27) portrait, add extra usage, today's and this week's totals and the weekday-by-hour grid.
 
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/widgets-dark.png">
     <img src="docs/screenshots/widgets-light.png" width="720" alt="The Claudon widget in small, medium and large sizes">
   </picture>
 
-  Add it from the widget gallery: right-click the desktop, choose Edit Widgets and search for Claudon. It follows the Tokens or Time choice in the popover and always shows all models. The widget only reads what Claudon writes to `~/Library/Application Support/Claudon/widget.json`, so it stays current while Claudon runs; if Claudon has been quit for a while, the glyph turns to a plain outline and the widget says when the limits were last checked.
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/widgets-xl-dark.png">
+    <img src="docs/screenshots/widgets-xl-light.png" width="720" alt="The Claudon widget in extra large and extra large portrait sizes">
+  </picture>
+
+  Add it from the widget gallery: right-click the desktop, choose Edit Widgets and search for Claudon. It follows the Tokens or Time choice in the popover and always shows all models. The widget only reads what Claudon writes to `~/Library/Application Support/Claudon/widget.json`, so it stays current while Claudon runs; if Claudon has been quit for a while, the glyph turns to a plain outline and the widget says when the limits were last checked. While another app is in front, macOS draws desktop widgets in a single tint, so the squares and meters switch to brightness steps.
 - **Notifications:** when any limit passes 80% and 95% (once per window), and when a session that went past 80% resets.
 - **Launch at login**, toggled from the ••• menu or by right-clicking the menu bar item.
 

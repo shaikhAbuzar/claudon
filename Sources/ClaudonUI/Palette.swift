@@ -15,6 +15,13 @@ public enum Palette {
         return Color(hex: ClaudonArt.stageColor(stage, dark: scheme == .dark))
     }
 
+    /// Heatmap levels as brightness steps, for when the system draws the widget in one tint
+    /// (the desktop while another app is in front). Hues would all turn the same gray there.
+    public static func dimmedHeat(_ level: Int) -> Color {
+        let opacities = [0.12, 0.32, 0.52, 0.74, 0.96]
+        return Color.primary.opacity(opacities[min(max(level, 0), opacities.count - 1)])
+    }
+
     public static func empty(_ scheme: ColorScheme) -> Color {
         scheme == .dark ? Color.white.opacity(0.09) : Color.black.opacity(0.07)
     }
@@ -26,6 +33,19 @@ public enum Palette {
         case .warning: Color(hex: 0xFAB219)
         case .critical: Color(hex: 0xD03B3B)
         }
+    }
+}
+
+private struct WidgetDimmedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// True while the system draws the widget in one tint, where colors carry no meaning and
+    /// views switch to brightness steps.
+    public var widgetDimmed: Bool {
+        get { self[WidgetDimmedKey.self] }
+        set { self[WidgetDimmedKey.self] = newValue }
     }
 }
 
@@ -42,6 +62,7 @@ public struct GlyphView: View {
     let stage: Int?
     let size: CGFloat
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.widgetDimmed) private var dimmed
 
     public init(stage: Int?, size: CGFloat = 18) {
         self.stage = stage
@@ -52,9 +73,10 @@ public struct GlyphView: View {
         let line = StrokeStyle(lineWidth: ClaudonArt.glyphStroke * size / ClaudonArt.glyphBox, lineCap: .round)
         ZStack {
             if let stage {
-                let color = Color(hex: ClaudonArt.stageColor(stage, dark: scheme == .dark))
+                let color = dimmed ? Color.primary : Color(hex: ClaudonArt.stageColor(stage, dark: scheme == .dark))
                 GlyphPath(path: Path(ClaudonArt.squircle))
-                    .stroke(scheme == .dark ? Color.white.opacity(0.28) : Color.black.opacity(0.22), style: line)
+                    .stroke(dimmed ? Color.primary.opacity(0.25)
+                        : scheme == .dark ? Color.white.opacity(0.28) : Color.black.opacity(0.22), style: line)
                 GlyphPath(path: Path(ClaudonArt.squircle))
                     .trim(from: 0, to: CGFloat(min(max(stage, 0), 9) + 1) / 10)
                     .stroke(color, style: line)
