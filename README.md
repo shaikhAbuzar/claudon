@@ -86,3 +86,7 @@ make uninstall
 ```
 
 This quits Claudon and removes the app, its settings and its usage history.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
