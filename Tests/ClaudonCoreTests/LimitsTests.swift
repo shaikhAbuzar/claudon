@@ -65,7 +65,7 @@ private func snapshot(session: Double, sessionReset: TimeInterval = 4 * 3600 + 3
 @Test func menuBarShowsSessionAndCountdown() throws {
     let now = Date(timeIntervalSince1970: 1_790_000_000)
     #expect(MenuBarSummary.make(from: snapshot(session: 17, now: now), now: now)
-            == MenuBarSummary(text: "17% · 4h 39m", level: .normal))
+            == MenuBarSummary(text: "17% · 4h 39m", level: .normal, stage: 1))
     #expect(MenuBarSummary.make(from: snapshot(session: 85, now: now), now: now)?.level == .warning)
     #expect(MenuBarSummary.make(from: snapshot(session: 97, now: now), now: now)?.level == .critical)
     // After the reset time the session starts over.
@@ -73,8 +73,19 @@ private func snapshot(session: Double, sessionReset: TimeInterval = 4 * 3600 + 3
     #expect(MenuBarSummary.make(from: snapshot(session: 97, now: now), now: later)?.text == "0%")
     // A used-up weekly limit is what blocks, so it takes over.
     #expect(MenuBarSummary.make(from: snapshot(session: 10, weekly: 100, weeklyReset: 2 * 86_400, now: now), now: now)
-            == MenuBarSummary(text: "Week 100% · 2d", level: .critical))
+            == MenuBarSummary(text: "Week 100% · 2d", level: .critical, stage: 9))
     #expect(MenuBarSummary.make(from: nil, now: now) == nil)
+}
+
+@Test func stagesStepEveryTenPercent() {
+    #expect(UsageLevel.stage(percent: 0) == 0)
+    #expect(UsageLevel.stage(percent: 9.9) == 0)
+    #expect(UsageLevel.stage(percent: 10) == 1)
+    #expect(UsageLevel.stage(percent: 55) == 5)
+    #expect(UsageLevel.stage(percent: 99.9) == 9)
+    #expect(UsageLevel.stage(percent: 100) == 9)
+    #expect(UsageLevel.stage(percent: 140) == 9)
+    #expect(UsageLevel.stage(percent: -5) == 0)
 }
 
 @Test func alertsFireOncePerThresholdAndWindow() throws {

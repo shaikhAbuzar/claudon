@@ -69,6 +69,12 @@ public enum UsageLevel: Int, Comparable, Sendable {
     }
 
     public static func < (lhs: UsageLevel, rhs: UsageLevel) -> Bool { lhs.rawValue < rhs.rawValue }
+
+    /// Which tenth of the limit is used, 0 through 9. A full or overrun limit stays at 9.
+    public static func stage(percent: Double) -> Int {
+        guard percent.isFinite else { return 0 }
+        return min(9, max(0, Int(percent / 10)))
+    }
 }
 
 // MARK: - Parsing
@@ -295,6 +301,8 @@ public enum ClaudeCredentials {
 public struct MenuBarSummary: Equatable, Sendable {
     public var text: String
     public var level: UsageLevel
+    /// Picks the menu bar glyph, one per 10% step.
+    public var stage: Int
 
     /// "17% · 4h 39m" for the session. A used-up weekly limit blocks everything,
     /// so it takes the session's place until it resets.
@@ -308,7 +316,7 @@ public struct MenuBarSummary: Equatable, Sendable {
             text += " · " + Formatters.countdown(resetsAt.timeIntervalSince(now))
         }
         if blocking != nil { text = "Week " + text }
-        return MenuBarSummary(text: text, level: UsageLevel(percent: percent))
+        return MenuBarSummary(text: text, level: UsageLevel(percent: percent), stage: UsageLevel.stage(percent: percent))
     }
 }
 

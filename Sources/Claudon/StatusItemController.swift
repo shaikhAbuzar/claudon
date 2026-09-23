@@ -57,10 +57,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func updateButton(limits: LimitsSnapshot?, now: Date, stale: Bool) {
         guard let button = statusItem.button else { return }
         guard let summary = MenuBarSummary.make(from: limits, now: now) else {
+            button.image = ClaudonArt.menuBarGlyph()
             button.attributedTitle = NSAttributedString(string: "")
             button.toolTip = "Claudon"
             return
         }
+        // Stale numbers keep the plain glyph so an old color doesn't look current.
+        button.image = stale ? ClaudonArt.menuBarGlyph() : ClaudonArt.menuBarGlyph(stage: summary.stage)
         var attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular),
         ]

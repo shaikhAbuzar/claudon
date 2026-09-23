@@ -12,7 +12,11 @@ Claudon is a small macOS menu bar app that shows your Claude plan limits at a gl
 
 ## What it shows
 
-- **Menu bar:** the Claudon creature, how much of the current 5-hour session you've used, and the time until it resets, for example `42% · 2h 14m`. The text turns orange at 80% and red at 95%. If a weekly limit is used up, the menu bar shows that limit instead, since it's the one blocking you.
+- **Menu bar:** the Claudon glyph, how much of the current 5-hour session you've used, and the time until it resets, for example `42% · 2h 14m`. The glyph fills clockwise and changes color every 10%, from dark blue through blue, green and orange to red, and the text turns orange at 80% and red at 95%.
+
+  <img src="docs/screenshots/stages-light.png" width="360" alt="The menu bar glyph at each 10% stage">
+
+  If a weekly limit is used up, the menu bar shows that limit instead, since it's the one blocking you.
 - **Limits:** the session, weekly limits (all models and per-model ones such as Fable) and extra usage spend. Each has a bar, a countdown and the clock time it resets.
 - **Today, 7 days, 30 days:** tokens, active time, API-equivalent cost and the model you used most.
 - **Activity:** a GitHub-style calendar of the last 26 weeks and a weekday-by-hour grid of the last 30 days. Switch between tokens and active time, filter to one model, and hover any square for its numbers.

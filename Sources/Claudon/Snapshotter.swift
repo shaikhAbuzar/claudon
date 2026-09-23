@@ -71,9 +71,14 @@ enum Snapshotter {
             }
         }
         for scheme in [ColorScheme.light, .dark] {
-            let bar = MenuBarPreview(text: MenuBarSummary.make(from: model.limits, now: now)?.text ?? "")
+            let summary = MenuBarSummary.make(from: model.limits, now: now)
+            let bar = MenuBarPreview(text: summary?.text ?? "", stage: summary?.stage)
                 .environment(\.colorScheme, scheme)
             write(bar, to: directory.appendingPathComponent("menubar-\(scheme == .dark ? "dark" : "light").png"))
+        }
+        for scheme in [ColorScheme.light, .dark] {
+            write(StagesPreview().environment(\.colorScheme, scheme),
+                  to: directory.appendingPathComponent("stages-\(scheme == .dark ? "dark" : "light").png"))
         }
         if let icon = ClaudonArt.pngData(pixels: 512, draw: { ClaudonArt.drawIcon(in: $0, size: 512) }) {
             try? icon.write(to: directory.appendingPathComponent("icon.png"))
@@ -97,18 +102,44 @@ enum Snapshotter {
 /// A stand-in for the menu bar item, for screenshots.
 private struct MenuBarPreview: View {
     let text: String
+    let stage: Int?
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(nsImage: ClaudonArt.menuBarGlyph())
-                .renderingMode(.template)
+            if let stage {
+                Image(nsImage: ClaudonArt.menuBarGlyph(stage: stage, dark: scheme == .dark))
+            } else {
+                Image(nsImage: ClaudonArt.menuBarGlyph())
+                    .renderingMode(.template)
+            }
             Text(text)
                 .font(.system(size: 13).monospacedDigit())
         }
         .foregroundStyle(scheme == .dark ? Color.white : Color.black)
         .padding(.horizontal, 10)
         .frame(height: 24)
+        .background(scheme == .dark ? Color(white: 0.12) : Color(white: 0.93))
+    }
+}
+
+/// Every menu bar stage side by side, for screenshots.
+private struct StagesPreview: View {
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(0..<ClaudonArt.stageColors.count, id: \.self) { stage in
+                VStack(spacing: 4) {
+                    Image(nsImage: ClaudonArt.menuBarGlyph(stage: stage, dark: scheme == .dark))
+                    Text("\(stage * 10)%")
+                        .font(.system(size: 10).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(scheme == .dark ? Color(white: 0.12) : Color(white: 0.93))
     }
 }

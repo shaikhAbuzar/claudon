@@ -1,78 +1,142 @@
 import AppKit
 
-/// Claudon's creature, drawn in code so it stays sharp at every size.
-///
-/// Every shape lives in a 100 x 100 box with y pointing down.
+/// Claudon's eared squircle, drawn in code so it stays sharp at every size.
 enum ClaudonArt {
-    static let leftEye = CGRect(x: 31.5, y: 52, width: 11, height: 15)
-    static let rightEye = CGRect(x: 57.5, y: 52, width: 11, height: 15)
-    /// The area the silhouette covers, used to center it.
-    static let silhouetteBounds = CGRect(x: 12, y: 8, width: 76, height: 84)
-
-    /// Body and ears, as separate shapes so overlapping paths can't cancel out.
-    static func silhouetteParts() -> [CGPath] {
-        let body = CGPath(ellipseIn: CGRect(x: 13, y: 30, width: 74, height: 62), transform: nil)
-        let leftEar = CGMutablePath()
-        leftEar.move(to: CGPoint(x: 19, y: 52))
-        leftEar.addQuadCurve(to: CGPoint(x: 21, y: 8), control: CGPoint(x: 12, y: 26))
-        leftEar.addQuadCurve(to: CGPoint(x: 47, y: 33), control: CGPoint(x: 37, y: 15))
-        leftEar.closeSubpath()
-        return [body, leftEar, mirrored(leftEar)]
-    }
-
-    static func innerEars() -> [CGPath] {
-        let ear = CGMutablePath()
-        ear.move(to: CGPoint(x: 24, y: 45))
-        ear.addQuadCurve(to: CGPoint(x: 24.5, y: 17), control: CGPoint(x: 19, y: 30))
-        ear.addQuadCurve(to: CGPoint(x: 41, y: 34), control: CGPoint(x: 33, y: 21))
-        ear.closeSubpath()
-        return [ear, mirrored(ear)]
-    }
-
-    /// A four-point sparkle on the forehead.
-    static func spark() -> CGPath {
-        let center = CGPoint(x: 50, y: 41)
-        let outer: CGFloat = 7, inner: CGFloat = 2
-        let path = CGMutablePath()
-        for i in 0..<8 {
-            let angle = CGFloat(i) * .pi / 4 - .pi / 2
-            let radius = i.isMultiple(of: 2) ? outer : inner
-            let point = CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
-            if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
-        }
-        path.closeSubpath()
-        return path
-    }
-
-    private static func mirrored(_ path: CGPath) -> CGPath {
-        var flip = CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: 100, ty: 0)
-        return path.copy(using: &flip) ?? path
-    }
-
     // MARK: Menu bar
 
-    /// Template image for the menu bar: the silhouette with the eyes cut out.
+    /// One color per 10% step: dark blue, blue, green, orange, red.
+    static let stageColors: [UInt32] = [
+        0x1B3A8C, 0x2456C4, 0x2A78D6, 0x1A9AA8, 0x22A33A,
+        0x7DB52A, 0xE2A21A, 0xF0821C, 0xE35A2C, 0xD03B3B,
+    ]
+    /// Navy disappears on a dark menu bar, so the first two stages lighten there.
+    static let darkStageColors: [UInt32] = [0x4A6FD8, 0x3F72E8] + stageColors.dropFirst(2)
+
+    /// The glyph lives in an 18 x 18 box with y pointing down: a squircle outline with two ears.
+    private static let glyphBox: CGFloat = 18
+    private static let glyphStroke: CGFloat = 2.5
+
+    /// The squircle, clockwise from top center so a partial stroke fills like a gauge.
+    private static let squircle: CGPath = {
+        let (left, top, right, bottom): (CGFloat, CGFloat, CGFloat, CGFloat) = (3.2, 5, 14.8, 16.6)
+        let k: CGFloat = 4.6, c = k * 0.22
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 9, y: top))
+        path.addLine(to: CGPoint(x: right - k, y: top))
+        path.addCurve(to: CGPoint(x: right, y: top + k), control1: CGPoint(x: right - c, y: top),
+                      control2: CGPoint(x: right, y: top + c))
+        path.addLine(to: CGPoint(x: right, y: bottom - k))
+        path.addCurve(to: CGPoint(x: right - k, y: bottom), control1: CGPoint(x: right, y: bottom - c),
+                      control2: CGPoint(x: right - c, y: bottom))
+        path.addLine(to: CGPoint(x: left + k, y: bottom))
+        path.addCurve(to: CGPoint(x: left, y: bottom - k), control1: CGPoint(x: left + c, y: bottom),
+                      control2: CGPoint(x: left, y: bottom - c))
+        path.addLine(to: CGPoint(x: left, y: top + k))
+        path.addCurve(to: CGPoint(x: left + k, y: top), control1: CGPoint(x: left, y: top + c),
+                      control2: CGPoint(x: left + c, y: top))
+        path.addLine(to: CGPoint(x: 9, y: top))
+        return path
+    }()
+
+    private static let squircleCenterY: CGFloat = (5 + 16.6) / 2
+
+    /// Everything the glyph paints: the stroked outline and the ears.
+    private static var glyphBounds: CGRect {
+        squircle.boundingBoxOfPath.insetBy(dx: -glyphStroke / 2, dy: -glyphStroke / 2)
+            .union(glyphEars.boundingBoxOfPath)
+    }
+
+    private static let squircleLength: CGFloat = length(of: squircle)
+
+    private static let glyphEars: CGPath = {
+        let ear = CGMutablePath()
+        ear.addLines(between: [CGPoint(x: 2.4, y: 7.2), CGPoint(x: 2.7, y: 1.2), CGPoint(x: 7.6, y: 4.4)])
+        ear.closeSubpath()
+        var flip = CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: glyphBox, ty: 0)
+        ear.addPath(ear.copy(using: &flip) ?? ear)
+        return ear
+    }()
+
+    /// Template glyph for when there's no current usage: the full outline, in the menu bar's ink.
     static func menuBarGlyph(size: CGFloat = 18) -> NSImage {
-        let image = NSImage(size: NSSize(width: size, height: size), flipped: true) { _ in
-            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
-            let art = silhouetteBounds
-            let scale = (size - 2) / art.height
-            ctx.translateBy(x: (size - art.width * scale) / 2 - art.minX * scale,
-                            y: (size - art.height * scale) / 2 - art.minY * scale)
-            ctx.scaleBy(x: scale, y: scale)
+        let image = glyphImage(size: size) { ctx, _ in
             ctx.setFillColor(NSColor.black.cgColor)
-            for part in silhouetteParts() {
-                ctx.addPath(part)
-                ctx.fillPath()
-            }
-            ctx.setBlendMode(.clear)
-            ctx.fillEllipse(in: leftEye)
-            ctx.fillEllipse(in: rightEye)
-            return true
+            ctx.addPath(glyphEars)
+            ctx.fillPath()
+            strokeSquircle(in: ctx, color: NSColor.black.cgColor)
         }
         image.isTemplate = true
         image.accessibilityDescription = "Claudon"
         return image
+    }
+
+    /// Colored glyph for a usage stage (0 through 9). The ears always carry the stage color and
+    /// the outline fills clockwise from the top, one tenth per stage, over a faint track.
+    /// `dark` forces a menu bar appearance; by default it follows the one being drawn into.
+    static func menuBarGlyph(stage: Int, dark: Bool? = nil, size: CGFloat = 18) -> NSImage {
+        let stage = min(max(stage, 0), stageColors.count - 1)
+        let image = glyphImage(size: size) { ctx, drawingDark in
+            let isDark = dark ?? drawingDark
+            let color = rgb((isDark ? darkStageColors : stageColors)[stage])
+            strokeSquircle(in: ctx, color: isDark ? CGColor(gray: 1, alpha: 0.28) : CGColor(gray: 0, alpha: 0.22))
+            let filled = squircleLength * CGFloat(stage + 1) / CGFloat(stageColors.count)
+            ctx.setLineDash(phase: 0, lengths: [filled, squircleLength * 2])
+            strokeSquircle(in: ctx, color: color)
+            ctx.setFillColor(color)
+            ctx.addPath(glyphEars)
+            ctx.fillPath()
+        }
+        image.accessibilityDescription = "Claudon, \(stage * 10) to \(stage * 10 + 10)% used"
+        return image
+    }
+
+    private static func glyphImage(size: CGFloat, draw: @escaping (CGContext, Bool) -> Void) -> NSImage {
+        NSImage(size: NSSize(width: size, height: size), flipped: true) { _ in
+            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
+            let dark = NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ctx.scaleBy(x: size / glyphBox, y: size / glyphBox)
+            draw(ctx, dark)
+            return true
+        }
+    }
+
+    private static func strokeSquircle(in ctx: CGContext, color: CGColor) {
+        ctx.setStrokeColor(color)
+        ctx.setLineWidth(glyphStroke)
+        ctx.setLineCap(.round)
+        ctx.addPath(squircle)
+        ctx.strokePath()
+    }
+
+    /// Arc length of a path made of lines and cubic curves, with curves sampled finely.
+    private static func length(of path: CGPath) -> CGFloat {
+        var total: CGFloat = 0
+        var current = CGPoint.zero
+        path.applyWithBlock { element in
+            let points = element.pointee.points
+            switch element.pointee.type {
+            case .moveToPoint:
+                current = points[0]
+            case .addLineToPoint:
+                total += hypot(points[0].x - current.x, points[0].y - current.y)
+                current = points[0]
+            case .addCurveToPoint:
+                let (p0, p1, p2, p3) = (current, points[0], points[1], points[2])
+                var previous = p0
+                for step in 1...64 {
+                    let t = CGFloat(step) / 64, u = 1 - t
+                    let a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t
+                    let point = CGPoint(x: a * p0.x + b * p1.x + c * p2.x + d * p3.x,
+                                        y: a * p0.y + b * p1.y + c * p2.y + d * p3.y)
+                    total += hypot(point.x - previous.x, point.y - previous.y)
+                    previous = point
+                }
+                current = p3
+            default:
+                break
+            }
+        }
+        return total
     }
 
     // MARK: App icon
@@ -85,69 +149,57 @@ enum ClaudonArt {
         }
     }
 
-    /// Draws the full-color icon into a y-down context `size` points square.
+    /// Draws the full-color icon into a y-down context `size` points square: the eared squircle
+    /// on a transparent ground, colored with every stage clockwise from the top.
     static func drawIcon(in ctx: CGContext, size: CGFloat) {
-        let unit = size / 1024
-        // macOS icon grid: an 824 point tile centered on a 1024 canvas.
-        let tile = CGRect(x: 100 * unit, y: 100 * unit, width: 824 * unit, height: 824 * unit)
+        // Fit the glyph, stroke and ears included, to the 824 point macOS icon grid.
+        let bounds = glyphBounds
+        let scale = size * 824 / 1024 / max(bounds.width, bounds.height)
         ctx.saveGState()
-        ctx.addPath(CGPath(roundedRect: tile, cornerWidth: 185 * unit, cornerHeight: 185 * unit, transform: nil))
-        ctx.clip()
-        let colors = [rgb(0xFFA15E), rgb(0xE85A3A)] as CFArray
-        if let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: colors,
-                                     locations: [0, 1]) {
-            ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: tile.minY), end: CGPoint(x: 0, y: tile.maxY),
-                                   options: [])
-        }
-        ctx.restoreGState()
-
-        let scale = 6.3 * unit
-        ctx.saveGState()
-        ctx.translateBy(x: 512 * unit - 50 * scale, y: 530 * unit - 50 * scale)
+        ctx.translateBy(x: size / 2 - bounds.midX * scale, y: size / 2 - bounds.midY * scale)
         ctx.scaleBy(x: scale, y: scale)
-        drawCreature(in: ctx)
+        // Ears and outline clip separately: combined, their opposite windings cancel where they overlap.
+        let outline = squircle.copy(strokingWithWidth: glyphStroke, lineCap: .round, lineJoin: .round, miterLimit: 10)
+        for shape in [glyphEars, outline] {
+            ctx.saveGState()
+            ctx.addPath(shape)
+            ctx.clip()
+            drawSweep(in: ctx)
+            ctx.restoreGState()
+        }
         ctx.restoreGState()
     }
 
-    /// The colored creature, in art-box coordinates.
-    static func drawCreature(in ctx: CGContext) {
-        let ink = rgb(0x2B1D16)
-        ctx.setFillColor(CGColor(gray: 0, alpha: 0.14))
-        ctx.fillEllipse(in: CGRect(x: 22, y: 87, width: 56, height: 9))
-
-        ctx.setFillColor(rgb(0xFFF4E8))
-        for part in silhouetteParts() {
-            ctx.addPath(part)
+    /// Every stage color clockwise from the top, as thin wedges since Core Graphics has no conic
+    /// gradient.
+    private static func drawSweep(in ctx: CGContext) {
+        let center = CGPoint(x: 9, y: squircleCenterY)
+        let slices = 720
+        for slice in 0..<slices {
+            // y points down, so angles run clockwise; -pi/2 is straight up.
+            let start = -CGFloat.pi / 2 + 2 * .pi * CGFloat(slice) / CGFloat(slices)
+            let end = start + 2 * .pi / CGFloat(slices) + 0.01
+            let wedge = CGMutablePath()
+            wedge.move(to: center)
+            wedge.addArc(center: center, radius: 20, startAngle: start, endAngle: end, clockwise: false)
+            wedge.closeSubpath()
+            ctx.setFillColor(sweepColor(at: (CGFloat(slice) + 0.5) / CGFloat(slices)))
+            ctx.addPath(wedge)
             ctx.fillPath()
         }
-        ctx.setFillColor(rgb(0xF7A58C))
-        for ear in innerEars() {
-            ctx.addPath(ear)
-            ctx.fillPath()
+    }
+
+    /// The stage colors blended evenly from 0 (dark blue) to 1 (red).
+    private static func sweepColor(at t: CGFloat) -> CGColor {
+        let position = min(max(t, 0), 1) * CGFloat(stageColors.count - 1)
+        let index = min(Int(position), stageColors.count - 2)
+        let mix = position - CGFloat(index)
+        func channels(_ hex: UInt32) -> [CGFloat] {
+            [CGFloat((hex >> 16) & 0xFF), CGFloat((hex >> 8) & 0xFF), CGFloat(hex & 0xFF)].map { $0 / 255 }
         }
-        ctx.setFillColor(rgb(0xFF8A80, alpha: 0.55))
-        ctx.fillEllipse(in: CGRect(x: 19, y: 67, width: 13, height: 8))
-        ctx.fillEllipse(in: CGRect(x: 68, y: 67, width: 13, height: 8))
-
-        ctx.setFillColor(ink)
-        ctx.fillEllipse(in: leftEye)
-        ctx.fillEllipse(in: rightEye)
-        ctx.setFillColor(rgb(0xFFFFFF))
-        ctx.fillEllipse(in: CGRect(x: 36.2, y: 54.5, width: 4.6, height: 4.6))
-        ctx.fillEllipse(in: CGRect(x: 62.2, y: 54.5, width: 4.6, height: 4.6))
-
-        let mouth = CGMutablePath()
-        mouth.move(to: CGPoint(x: 45, y: 71.5))
-        mouth.addQuadCurve(to: CGPoint(x: 55, y: 71.5), control: CGPoint(x: 50, y: 77))
-        ctx.setStrokeColor(ink)
-        ctx.setLineWidth(2.6)
-        ctx.setLineCap(.round)
-        ctx.addPath(mouth)
-        ctx.strokePath()
-
-        ctx.setFillColor(rgb(0xF07A45))
-        ctx.addPath(spark())
-        ctx.fillPath()
+        let from = channels(stageColors[index]), to = channels(stageColors[index + 1])
+        let blended = zip(from, to).map { $0 + ($1 - $0) * mix }
+        return CGColor(srgbRed: blended[0], green: blended[1], blue: blended[2], alpha: 1)
     }
 
     /// Writes the PNGs `iconutil` turns into AppIcon.icns.
