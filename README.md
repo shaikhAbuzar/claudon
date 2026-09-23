@@ -1,10 +1,13 @@
-<img src="docs/screenshots/icon.png" width="96" alt="Claudon icon">
+<img src="docs/screenshots/icon.png" width="96" alt="Claudon icon: the eared squircle in every stage color">
 
 # Claudon
 
 Claudon is a small macOS menu bar app that shows your Claude plan limits at a glance, plus where your Claude Code tokens go: which models, which projects, which days and which hours.
 
-<img src="docs/screenshots/menubar-light.png" height="24" alt="Menu bar item showing 42% · 2h 14m">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/menubar-dark.png">
+  <img src="docs/screenshots/menubar-light.png" height="24" alt="Menu bar item: the green glyph at the 40% stage, then 42% · 2h 14m">
+</picture>
 
 <img src="docs/screenshots/popover-activity-light.png" width="400" alt="Claudon popover, light"> <img src="docs/screenshots/popover-activity-dark.png" width="400" alt="Claudon popover, dark">
 
@@ -14,7 +17,12 @@ Claudon is a small macOS menu bar app that shows your Claude plan limits at a gl
 
 - **Menu bar:** the Claudon glyph, how much of the current 5-hour session you've used, and the time until it resets, for example `42% · 2h 14m`. The glyph fills clockwise and changes color every 10%, from dark blue through blue, green and orange to red, and the text turns orange at 80% and red at 95%.
 
-  <img src="docs/screenshots/stages-light.png" width="360" alt="The menu bar glyph at each 10% stage">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/stages-dark.png">
+    <img src="docs/screenshots/stages-light.png" width="360" alt="The menu bar glyph at each 10% stage, from dark blue at 0% to red at 90%">
+  </picture>
+
+  Before usage loads, or when the latest check failed, the glyph shows as a plain outline so an old color isn't mistaken for current usage.
 
   If a weekly limit is used up, the menu bar shows that limit instead, since it's the one blocking you.
 - **Limits:** the session, weekly limits (all models and per-model ones such as Fable) and extra usage spend. Each has a bar, a countdown and the clock time it resets.
@@ -67,7 +75,7 @@ make snapshots   # render the popover with demo data into docs/screenshots
 | Folder | Contents |
 | --- | --- |
 | `Sources/ClaudonCore` | Transcript index, limits client and parser, pricing, aggregation and formatting. No UI, covered by the tests. |
-| `Sources/Claudon` | The app: the AppKit status item, the SwiftUI popover, notifications, the login item and the icon, which is drawn in code. |
+| `Sources/Claudon` | The app: the AppKit status item, the SwiftUI popover, notifications, the login item and the menu bar glyph and app icon, both drawn in code. |
 | `Tests/ClaudonCoreTests` | Tests for de-duplication, incremental reads, time zones, limits parsing, alerts and formatting. |
 | `scripts` | Build, install and uninstall scripts. |
 
