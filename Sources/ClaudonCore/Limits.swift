@@ -15,6 +15,14 @@ public struct LimitsSnapshot: Codable, Sendable, Equatable {
     }
 
     public var session: LimitWindow? { windows.first { $0.kind == "session" } }
+
+    /// The limit to lead with: the session, unless a used-up weekly limit is blocking everything.
+    public func headline(at now: Date) -> (window: LimitWindow, blocking: Bool)? {
+        if let blocking = windows.first(where: { $0.kind != "session" && $0.percent(at: now) >= 100 }) {
+            return (blocking, true)
+        }
+        return (session ?? windows.first).map { ($0, false) }
+    }
 }
 
 public struct LimitWindow: Codable, Sendable, Equatable, Identifiable {
@@ -307,15 +315,13 @@ public struct MenuBarSummary: Equatable, Sendable {
     /// "17% · 4h 39m" for the session. A used-up weekly limit blocks everything,
     /// so it takes the session's place until it resets.
     public static func make(from snapshot: LimitsSnapshot?, now: Date) -> MenuBarSummary? {
-        guard let snapshot, !snapshot.windows.isEmpty else { return nil }
-        let blocking = snapshot.windows.first { $0.kind != "session" && $0.percent(at: now) >= 100 }
-        let window = blocking ?? snapshot.session ?? snapshot.windows[0]
+        guard let (window, blocking) = snapshot?.headline(at: now) else { return nil }
         let percent = window.percent(at: now)
         var text = Formatters.percent(percent)
         if let resetsAt = window.resetsAt, resetsAt > now {
             text += " · " + Formatters.countdown(resetsAt.timeIntervalSince(now))
         }
-        if blocking != nil { text = "Week " + text }
+        if blocking { text = "Week " + text }
         return MenuBarSummary(text: text, level: UsageLevel(percent: percent), stage: UsageLevel.stage(percent: percent))
     }
 }

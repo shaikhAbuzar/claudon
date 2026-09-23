@@ -1,5 +1,6 @@
 import AppKit
 import ClaudonCore
+import ClaudonUI
 import Combine
 import SwiftUI
 

@@ -69,6 +69,7 @@ final class AppModel: ObservableObject {
     private let indexQueue = DispatchQueue(label: "app.claudon.index", qos: .utility)
     private let client = LimitsClient()
     private let notifier: Notifier?
+    private let widget: WidgetPublisher?
     private var aggregator: UsageAggregator?
     private var credentials: OAuthCredentials?
     private var credentialsReadAt = Date.distantPast
@@ -89,9 +90,11 @@ final class AppModel: ObservableObject {
         static let plan = "plan"
     }
 
-    init(index: TranscriptIndex?, notifier: Notifier?, defaults: UserDefaults = .standard) {
+    init(index: TranscriptIndex?, notifier: Notifier?, widget: WidgetPublisher? = nil,
+         defaults: UserDefaults = .standard) {
         self.index = index
         self.notifier = notifier
+        self.widget = widget
         self.defaults = defaults
         metric = Metric(rawValue: defaults.string(forKey: Keys.metric) ?? "") ?? .tokens
         modelFilter = defaults.string(forKey: Keys.modelFilter)
@@ -177,6 +180,7 @@ final class AppModel: ObservableObject {
         Task {
             await fetchLimits()
             isFetchingLimits = false
+            publishWidget()
         }
     }
 
@@ -301,9 +305,32 @@ final class AppModel: ObservableObject {
             return
         }
         let group = modelFilter.flatMap(aggregator.groupIndex(named:))
-        activity = ActivityData(days: aggregator.days(weeks: Self.calendarWeeks, group: group, now: now),
-                                hours: aggregator.hours(days: Self.hourGridDays, group: group, now: now),
-                                metric: metric, filtered: group != nil, calendar: aggregator.calendar)
+        activity = activityData(aggregator, group: group)
+        publishWidget()
+    }
+
+    private func activityData(_ aggregator: UsageAggregator, group: Int?) -> ActivityData {
+        ActivityData(days: aggregator.days(weeks: Self.calendarWeeks, group: group, now: now),
+                     hours: aggregator.hours(days: Self.hourGridDays, group: group, now: now),
+                     metric: metric, filtered: group != nil, calendar: aggregator.calendar)
+    }
+
+    /// The widget shows all models with the popover's metric, whatever the model filter.
+    private func publishWidget() {
+        guard let widget, let aggregator else { return }
+        let data = modelFilter == nil ? activity : nil
+        widget.publish(widgetSnapshot(data ?? activityData(aggregator, group: nil)))
+    }
+
+    func widgetSnapshot(_ data: ActivityData) -> WidgetSnapshot {
+        func totals(_ summary: PeriodSummary) -> WidgetSnapshot.Totals {
+            .init(tokens: summary.tokens, minutes: summary.minutes, cost: summary.cost)
+        }
+        return WidgetSnapshot(generatedAt: Date(), limits: limits, limitsStale: limitsProblem != nil,
+                              metric: data.metric, today: totals(overview.today), week: totals(overview.week),
+                              dayLevels: data.dayLevels,
+                              monthLabels: data.monthLabels.map { .init(column: $0.id, text: $0.text) },
+                              hourLevels: data.hourLevels, hourRowNames: data.hourRowNames)
     }
 
     private func rebuildBreakdown() {

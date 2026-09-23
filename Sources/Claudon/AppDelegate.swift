@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let isAppBundle = Bundle.main.bundleURL.pathExtension == "app"
         let model = AppModel(index: TranscriptIndex(stateURL: Self.stateURL),
-                             notifier: isAppBundle ? Notifier() : nil)
+                             notifier: isAppBundle ? Notifier() : nil, widget: WidgetPublisher())
         self.model = model
         statusItem = StatusItemController(model: model)
         if isAppBundle { LoginItem.enableOnFirstInstalledRun() }

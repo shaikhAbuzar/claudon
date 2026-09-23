@@ -1,23 +1,28 @@
 import AppKit
 
 /// Claudon's eared squircle, drawn in code so it stays sharp at every size.
-enum ClaudonArt {
+public enum ClaudonArt {
     // MARK: Menu bar
 
     /// One color per 10% step: dark blue, blue, green, orange, red.
-    static let stageColors: [UInt32] = [
+    public static let stageColors: [UInt32] = [
         0x1B3A8C, 0x2456C4, 0x2A78D6, 0x1A9AA8, 0x22A33A,
         0x7DB52A, 0xE2A21A, 0xF0821C, 0xE35A2C, 0xD03B3B,
     ]
     /// Navy disappears on a dark menu bar, so the first two stages lighten there.
-    static let darkStageColors: [UInt32] = [0x4A6FD8, 0x3F72E8] + stageColors.dropFirst(2)
+    public static let darkStageColors: [UInt32] = [0x4A6FD8, 0x3F72E8] + stageColors.dropFirst(2)
+
+    /// The color for a stage (0 through 9) on a light or dark ground.
+    public static func stageColor(_ stage: Int, dark: Bool) -> UInt32 {
+        (dark ? darkStageColors : stageColors)[min(max(stage, 0), stageColors.count - 1)]
+    }
 
     /// The glyph lives in an 18 x 18 box with y pointing down: a squircle outline with two ears.
-    private static let glyphBox: CGFloat = 18
-    private static let glyphStroke: CGFloat = 2.5
+    public static let glyphBox: CGFloat = 18
+    public static let glyphStroke: CGFloat = 2.5
 
     /// The squircle, clockwise from top center so a partial stroke fills like a gauge.
-    private static let squircle: CGPath = {
+    public static let squircle: CGPath = {
         let (left, top, right, bottom): (CGFloat, CGFloat, CGFloat, CGFloat) = (3.2, 5, 14.8, 16.6)
         let k: CGFloat = 4.6, c = k * 0.22
         let path = CGMutablePath()
@@ -48,7 +53,7 @@ enum ClaudonArt {
 
     private static let squircleLength: CGFloat = length(of: squircle)
 
-    private static let glyphEars: CGPath = {
+    public static let glyphEars: CGPath = {
         let ear = CGMutablePath()
         ear.addLines(between: [CGPoint(x: 2.4, y: 7.2), CGPoint(x: 2.7, y: 1.2), CGPoint(x: 7.6, y: 4.4)])
         ear.closeSubpath()
@@ -58,7 +63,7 @@ enum ClaudonArt {
     }()
 
     /// Template glyph for when there's no current usage: the full outline, in the menu bar's ink.
-    static func menuBarGlyph(size: CGFloat = 18) -> NSImage {
+    public static func menuBarGlyph(size: CGFloat = 18) -> NSImage {
         let image = glyphImage(size: size) { ctx, _ in
             ctx.setFillColor(NSColor.black.cgColor)
             ctx.addPath(glyphEars)
@@ -73,11 +78,11 @@ enum ClaudonArt {
     /// Colored glyph for a usage stage (0 through 9). The ears always carry the stage color and
     /// the outline fills clockwise from the top, one tenth per stage, over a faint track.
     /// `dark` forces a menu bar appearance; by default it follows the one being drawn into.
-    static func menuBarGlyph(stage: Int, dark: Bool? = nil, size: CGFloat = 18) -> NSImage {
+    public static func menuBarGlyph(stage: Int, dark: Bool? = nil, size: CGFloat = 18) -> NSImage {
         let stage = min(max(stage, 0), stageColors.count - 1)
         let image = glyphImage(size: size) { ctx, drawingDark in
             let isDark = dark ?? drawingDark
-            let color = rgb((isDark ? darkStageColors : stageColors)[stage])
+            let color = rgb(stageColor(stage, dark: isDark))
             strokeSquircle(in: ctx, color: isDark ? CGColor(gray: 1, alpha: 0.28) : CGColor(gray: 0, alpha: 0.22))
             let filled = squircleLength * CGFloat(stage + 1) / CGFloat(stageColors.count)
             ctx.setLineDash(phase: 0, lengths: [filled, squircleLength * 2])
@@ -141,7 +146,7 @@ enum ClaudonArt {
 
     // MARK: App icon
 
-    static func appIcon(size: CGFloat) -> NSImage {
+    public static func appIcon(size: CGFloat) -> NSImage {
         NSImage(size: NSSize(width: size, height: size), flipped: true) { _ in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
             drawIcon(in: ctx, size: size)
@@ -151,7 +156,7 @@ enum ClaudonArt {
 
     /// Draws the full-color icon into a y-down context `size` points square: the eared squircle
     /// on a transparent ground, colored with every stage clockwise from the top.
-    static func drawIcon(in ctx: CGContext, size: CGFloat) {
+    public static func drawIcon(in ctx: CGContext, size: CGFloat) {
         // Fit the glyph, stroke and ears included, to the 824 point macOS icon grid.
         let bounds = glyphBounds
         let scale = size * 824 / 1024 / max(bounds.width, bounds.height)
@@ -203,7 +208,7 @@ enum ClaudonArt {
     }
 
     /// Writes the PNGs `iconutil` turns into AppIcon.icns.
-    static func writeIconset(to directory: URL) throws {
+    public static func writeIconset(to directory: URL) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let sizes: [(name: String, pixels: Int)] = [
             ("16x16", 16), ("16x16@2x", 32), ("32x32", 32), ("32x32@2x", 64), ("128x128", 128),
@@ -218,7 +223,7 @@ enum ClaudonArt {
     }
 
     /// Renders into a square bitmap with a y-down context.
-    static func pngData(pixels: Int, draw: (CGContext) -> Void) -> Data? {
+    public static func pngData(pixels: Int, draw: (CGContext) -> Void) -> Data? {
         guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels,
                                          bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                          colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),

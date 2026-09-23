@@ -1,4 +1,5 @@
 import ClaudonCore
+import ClaudonUI
 import SwiftUI
 
 struct PopoverView: View {

@@ -1,5 +1,6 @@
 import AppKit
 import ClaudonCore
+import ClaudonUI
 import SwiftUI
 
 /// `Claudon --snapshot <folder> [--demo]` renders the popover to PNG files, for checking
@@ -80,6 +81,13 @@ enum Snapshotter {
             write(StagesPreview().environment(\.colorScheme, scheme),
                   to: directory.appendingPathComponent("stages-\(scheme == .dark ? "dark" : "light").png"))
         }
+        if let activity = model.activity {
+            let snapshot = model.widgetSnapshot(activity)
+            for scheme in [ColorScheme.light, .dark] {
+                write(WidgetsPreview(snapshot: snapshot, now: now).environment(\.colorScheme, scheme),
+                      to: directory.appendingPathComponent("widgets-\(scheme == .dark ? "dark" : "light").png"))
+            }
+        }
         if let icon = ClaudonArt.pngData(pixels: 512, draw: { ClaudonArt.drawIcon(in: $0, size: 512) }) {
             try? icon.write(to: directory.appendingPathComponent("icon.png"))
         }
@@ -141,6 +149,34 @@ private struct StagesPreview: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(scheme == .dark ? Color(white: 0.12) : Color(white: 0.93))
+    }
+}
+
+/// The widget at each size, laid out like a desktop, for screenshots. Sizes and margins follow
+/// macOS desktop widgets.
+private struct WidgetsPreview: View {
+    let snapshot: WidgetSnapshot
+    let now: Date
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 16) {
+                tile(.small, width: 164, height: 164)
+                tile(.medium, width: 344, height: 164)
+            }
+            tile(.large, width: 344, height: 344)
+        }
+        .padding(20)
+        .background(scheme == .dark ? Color(white: 0.1) : Color(white: 0.85))
+    }
+
+    private func tile(_ size: WidgetSize, width: CGFloat, height: CGFloat) -> some View {
+        UsageWidgetView(snapshot: snapshot, now: now, size: size)
+            .padding(16)
+            .frame(width: width, height: height)
+            .background(scheme == .dark ? Color(white: 0.17) : Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
